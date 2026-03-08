@@ -219,6 +219,7 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	commitHash := r.URL.Query().Get("commitHash")
+	message := r.URL.Query().Get("message")
 	runtimeVersion := r.URL.Query().Get("runtimeVersion")
 	if runtimeVersion == "" {
 		log.Printf("[RequestID: %s] No runtime version provided", requestID)
@@ -256,6 +257,9 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 	fileUpdateMetadata := map[string]interface{}{
 		"platform":   platform,
 		"commitHash": commitHash,
+	}
+	if message != "" {
+		fileUpdateMetadata["message"] = message
 	}
 	marshalledMetadata, err := json.Marshal(fileUpdateMetadata)
 	if err != nil {
