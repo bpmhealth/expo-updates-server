@@ -119,8 +119,10 @@ export async function requestUploadUrls({
   uploadUrl.searchParams.set('runtimeVersion', runtimeVersion);
   uploadUrl.searchParams.set('platform', platform);
   uploadUrl.searchParams.set('commitHash', commitHash ?? '');
+
+  const requestBody: { fileNames: string[]; message?: string } = { ...body };
   if (message) {
-    uploadUrl.searchParams.set('message', message);
+    requestBody.message = message;
   }
 
   const response = await fetchWithRetries(uploadUrl.toString(), {
@@ -129,7 +131,7 @@ export async function requestUploadUrls({
       ...getAuthExpoHeaders(auth),
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify(requestBody),
   });
   if (!response.ok) {
     const text = await response.text();

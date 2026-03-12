@@ -21,6 +21,7 @@ import (
 
 type FileNamesRequest struct {
 	FileNames []string `json:"fileNames"`
+	Message   string   `json:"message,omitempty"`
 }
 
 func MarkUpdateAsUploadedHandler(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +220,6 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	commitHash := r.URL.Query().Get("commitHash")
-	message := r.URL.Query().Get("message")
 	runtimeVersion := r.URL.Query().Get("runtimeVersion")
 	if runtimeVersion == "" {
 		log.Printf("[RequestID: %s] No runtime version provided", requestID)
@@ -258,8 +258,8 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 		"platform":   platform,
 		"commitHash": commitHash,
 	}
-	if message != "" {
-		fileUpdateMetadata["message"] = message
+	if request.Message != "" {
+		fileUpdateMetadata["message"] = request.Message
 	}
 	marshalledMetadata, err := json.Marshal(fileUpdateMetadata)
 	if err != nil {

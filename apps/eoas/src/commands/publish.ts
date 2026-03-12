@@ -69,7 +69,8 @@ export default class Publish extends Command {
     }),
     message: Flags.string({
       char: 'm',
-      description: 'A short message describing the update',
+      description:
+        'A short message describing the update. Defaults to the latest git commit message.',
       required: false,
     }),
   };
@@ -150,6 +151,11 @@ export default class Publish extends Command {
     }
 
     const commitHash = await vcsClient.getCommitHashAsync();
+
+    let resolvedMessage = message;
+    if (!resolvedMessage && vcsClient.canGetLastCommitMessage()) {
+      resolvedMessage = (await vcsClient.getLastCommitMessageAsync()) ?? undefined;
+    }
 
     const runtimeSpinner = ora('🔄 Resolving runtime version...').start();
     const runtimeVersions = [
@@ -270,7 +276,7 @@ export default class Publish extends Command {
               runtimeVersion,
               platform,
               commitHash,
-              message,
+              message: resolvedMessage,
             })),
             runtimeVersion,
             platform,
