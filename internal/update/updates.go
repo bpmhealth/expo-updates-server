@@ -339,6 +339,9 @@ func shapeManifestAsset(update types.Update, asset *types.Asset, isLaunchAsset b
 	if errAssetFile != nil {
 		return types.ManifestAsset{}, errAssetFile
 	}
+	if assetFile == nil {
+		return types.ManifestAsset{}, fmt.Errorf("asset file not found: %s", asset.Path)
+	}
 
 	byteAsset, errAsset := bucket.ConvertReadCloserToBytes(assetFile.Reader)
 	defer assetFile.Reader.Close()
