@@ -96,6 +96,8 @@ func MarkUpdateAsChecked(update types.Update) error {
 	}
 	reader := strings.NewReader(".check")
 	_ = resolvedBucket.UploadFileIntoUpdate(update, ".check", reader)
+	go PreWarmManifestCache(update.Branch, update.RuntimeVersion, "ios")
+	go PreWarmManifestCache(update.Branch, update.RuntimeVersion, "android")
 	return nil
 }
 
@@ -336,6 +338,9 @@ func shapeManifestAsset(update types.Update, asset *types.Asset, isLaunchAsset b
 	assetFile, errAssetFile := resolvedBucket.GetFile(update, asset.Path)
 	if errAssetFile != nil {
 		return types.ManifestAsset{}, errAssetFile
+	}
+	if assetFile == nil {
+		return types.ManifestAsset{}, fmt.Errorf("asset file not found: %s", asset.Path)
 	}
 
 	byteAsset, errAsset := bucket.ConvertReadCloserToBytes(assetFile.Reader)
@@ -615,8 +620,5 @@ func RepublishUpdate(previousUpdate *types.Update, platform, commitHash string) 
 	if err != nil {
 		return nil, err
 	}
-	cache := cache2.GetCache()
-	cacheKey := ComputeLastUpdateCacheKey(newUpdate.Branch, newUpdate.RuntimeVersion, platform)
-	cache.Delete(cacheKey)
 	return newUpdate, nil
 }

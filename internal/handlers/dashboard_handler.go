@@ -391,4 +391,6 @@ func UpdateChannelBranchMappingHandler(w http.ResponseWriter, r *http.Request) {
 	cache := cache2.GetCache()
 	cache.Delete(branchesCacheKey)
 	cache.Delete(channelsCacheKey)
+	channelMappingCacheKey := services.ComputeChannelMappingCacheKey(releaseChannel)
+	cache.Delete(channelMappingCacheKey)
 }

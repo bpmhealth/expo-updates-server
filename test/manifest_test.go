@@ -635,3 +635,34 @@ func TestEmptyRequestForAndroid(t *testing.T) {
 	}
 	assert.Equal(t, "{\"type\":\"noUpdateAvailable\"}", body)
 }
+
+
+func TestPreWarmManifestCache(t *testing.T) {
+	teardown := setup(t)
+	defer teardown()
+	mockWorkingExpoResponse("staging")
+
+	cache := cache2.GetCache()
+
+	// Verify caches are empty before prewarm
+	lastUpdateKey := update.ComputeLastUpdateCacheKey("branch-1", "1", "android")
+	assert.Equal(t, "", cache.Get(lastUpdateKey), "lastUpdate cache should be empty before prewarm")
+
+	// Run PreWarm synchronously (not as goroutine) for testing
+	update.PreWarmManifestCache("branch-1", "1", "android")
+
+	// Verify lastUpdate cache was populated
+	lastUpdateCached := cache.Get(lastUpdateKey)
+	assert.NotEqual(t, "", lastUpdateCached, "lastUpdate cache should be populated after prewarm")
+
+	// Verify metadata cache was populated
+	var cachedUpdate types.Update
+	err := json.Unmarshal([]byte(lastUpdateCached), &cachedUpdate)
+	assert.NoError(t, err)
+	metadataKey := update.ComputeMetadataCacheKey("branch-1", "1", cachedUpdate.UpdateId)
+	assert.NotEqual(t, "", cache.Get(metadataKey), "metadata cache should be populated after prewarm")
+
+	// Verify manifest cache was populated
+	manifestKey := update.ComputeUpdataManifestCacheKey("branch-1", "1", cachedUpdate.UpdateId, "android")
+	assert.NotEqual(t, "", cache.Get(manifestKey), "manifest cache should be populated after prewarm")
+}

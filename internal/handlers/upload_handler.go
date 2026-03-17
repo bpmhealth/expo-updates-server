@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"expo-open-ota/internal/branch"
 	"expo-open-ota/internal/bucket"
-	cache2 "expo-open-ota/internal/cache"
 	"expo-open-ota/internal/helpers"
 	"expo-open-ota/internal/services"
 	"expo-open-ota/internal/types"
@@ -278,10 +277,6 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error uploading file update metadata", http.StatusInternalServerError)
 		return
 	}
-
-	cache := cache2.GetCache()
-	cacheKey := update.ComputeLastUpdateCacheKey(branchName, runtimeVersion, platform)
-	cache.Delete(cacheKey)
 
 	response := map[string]interface{}{
 		"updateId":       updateId,
