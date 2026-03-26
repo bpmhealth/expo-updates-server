@@ -3,6 +3,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"expo-open-ota/internal/branch"
 	"expo-open-ota/internal/bucket"
 	"expo-open-ota/internal/helpers"
@@ -251,6 +252,10 @@ func RequestUploadUrlHandler(w http.ResponseWriter, r *http.Request) {
 	updateRequests, err := bucket.RequestUploadUrlsForFileUpdates(branchName, runtimeVersion, update.ConvertUpdateTimestampToString(updateId), request.FileNames)
 	if err != nil {
 		log.Printf("[RequestID: %s] Error requesting upload urls: %v", requestID, err)
+		if errors.Is(err, bucket.ErrInvalidUploadFilePath) {
+			http.Error(w, "Invalid file path", http.StatusBadRequest)
+			return
+		}
 		http.Error(w, "Error requesting upload urls", http.StatusInternalServerError)
 		return
 	}

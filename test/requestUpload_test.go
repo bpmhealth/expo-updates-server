@@ -255,6 +255,32 @@ func TestRequestUploadUrlWithBadFilenamesType(t *testing.T) {
 	assert.Equal(t, "Invalid JSON body\n", w.Body.String(), "Expected error message")
 }
 
+func TestRequestUploadUrlWithPathTraversalFilename(t *testing.T) {
+	teardown := setup(t)
+	defer teardown()
+	mockExpoForRequestUploadUrlTest("staging")
+	projectRoot, err := findProjectRoot()
+	if err != nil {
+		t.Fatalf("Error finding project root: %v", err)
+	}
+	os.Setenv("LOCAL_BUCKET_BASE_PATH", filepath.Join(projectRoot, "./updates"))
+	q := "http://localhost:3000/requestUploadUrl/DO_NOT_USE?runtimeVersion=1"
+	w := httptest.NewRecorder()
+	r := httptest.NewRequest("POST", q, nil)
+	r = mux.SetURLVars(r, map[string]string{"BRANCH": "DO_NOT_USE"})
+	r.Header.Set("Authorization", "Bearer expo_test_token")
+	uploadRequestsInputJSON, err := json.Marshal(handlers.FileNamesRequest{
+		FileNames: []string{"../escape.txt", "metadata.json"},
+	})
+	if err != nil {
+		t.Fatalf("Error marshalling uploadRequestsInput: %v", err)
+	}
+	r.Body = io.NopCloser(bytes.NewReader(uploadRequestsInputJSON))
+	handlers.RequestUploadUrlHandler(w, r)
+	assert.Equal(t, 400, w.Code, "Expected status code 400")
+	assert.Equal(t, "Invalid file path\n", w.Body.String(), "Expected error message")
+}
+
 func TestRequestUploadUrlWithSampleUpdate(t *testing.T) {
 	teardown := setup(t)
 	defer teardown()

@@ -57,7 +57,7 @@ func TestBadPlatformForAssets(t *testing.T) {
 	mockWorkingExpoResponse("staging")
 	request := assets.AssetsRequest{
 		Branch:         "branch-1",
-		AssetName:      "/assets/4f1cb2cac2370cd5050681232e8575a8",
+		AssetName:      "assets/4f1cb2cac2370cd5050681232e8575a8",
 		RuntimeVersion: "1",
 		Platform:       "blackberry",
 		RequestID:      "test",
@@ -88,7 +88,7 @@ func TestMissingRuntimeVersionForAssets(t *testing.T) {
 	mockWorkingExpoResponse("staging")
 	request := assets.AssetsRequest{
 		Branch:         "branch-1",
-		AssetName:      "/assets/4f1cb2cac2370cd5050681232e8575a8",
+		AssetName:      "assets/4f1cb2cac2370cd5050681232e8575a8",
 		RuntimeVersion: "",
 		Platform:       "ios",
 		RequestID:      "test",
@@ -119,7 +119,7 @@ func TestEmptyUpdatesForAssets(t *testing.T) {
 	mockWorkingExpoResponse("staging")
 	request := assets.AssetsRequest{
 		Branch:         "emptyruntime",
-		AssetName:      "/assets/4f1cb2cac2370cd5050681232e8575a8",
+		AssetName:      "assets/4f1cb2cac2370cd5050681232e8575a8",
 		RuntimeVersion: "1",
 		Platform:       "ios",
 		RequestID:      "test",
@@ -150,7 +150,7 @@ func TestBadRuntimeVersion(t *testing.T) {
 	mockWorkingExpoResponse("staging")
 	request := assets.AssetsRequest{
 		Branch:         "branch-1",
-		AssetName:      "/assets/4f1cb2cac2370cd5050681232e8575a8",
+		AssetName:      "assets/4f1cb2cac2370cd5050681232e8575a8",
 		RuntimeVersion: "never",
 		Platform:       "ios",
 		RequestID:      "test",
@@ -167,6 +167,37 @@ func TestBadRuntimeVersion(t *testing.T) {
 	})
 	t.Run("Test HandleAssetsWithURL", func(t *testing.T) {
 		testBadRuntimeVersion(t, func(req assets.AssetsRequest) (assets.AssetsResponse, error) {
+			os.Setenv("PRIVATE_CLOUDFRONT_KEY_PATH", filepath.Join(projectRoot, "/test/keys/private-key-cloudfront-test.pem"))
+			os.Setenv("CLOUDFRONT_DOMAIN", "https://cdn.expoopenota.com")
+			os.Setenv("CLOUDFRONT_KEY_PAIR_ID", "test")
+			return assets.HandleAssetsWithURL(req, &cdn.CloudfrontCDN{})
+		})
+	})
+}
+
+func TestPathTraversalForAssets(t *testing.T) {
+	teardown := setup(t)
+	defer teardown()
+	mockWorkingExpoResponse("staging")
+	request := assets.AssetsRequest{
+		Branch:         "branch-1",
+		AssetName:      "../secrets.txt",
+		RuntimeVersion: "1",
+		Platform:       "ios",
+		RequestID:      "test",
+	}
+	projectRoot, _ := findProjectRoot()
+	testPathTraversal := func(t *testing.T, handlerFunc func(assets.AssetsRequest) (assets.AssetsResponse, error)) {
+		response, err := handlerFunc(request)
+		assert.Nil(t, err, "Expected no error")
+		assert.Equal(t, 400, response.StatusCode, "Expected status code 400 for an invalid asset path")
+		assert.Equal(t, "Invalid asset name", string(response.Body), "Expected invalid asset name message")
+	}
+	t.Run("Test HandleAssetsWithFile", func(t *testing.T) {
+		testPathTraversal(t, assets.HandleAssetsWithFile)
+	})
+	t.Run("Test HandleAssetsWithURL", func(t *testing.T) {
+		testPathTraversal(t, func(req assets.AssetsRequest) (assets.AssetsResponse, error) {
 			os.Setenv("PRIVATE_CLOUDFRONT_KEY_PATH", filepath.Join(projectRoot, "/test/keys/private-key-cloudfront-test.pem"))
 			os.Setenv("CLOUDFRONT_DOMAIN", "https://cdn.expoopenota.com")
 			os.Setenv("CLOUDFRONT_KEY_PAIR_ID", "test")

@@ -3,6 +3,7 @@ package assets
 import (
 	"expo-open-ota/internal/bucket"
 	"expo-open-ota/internal/cdn"
+	"expo-open-ota/internal/helpers"
 	"expo-open-ota/internal/types"
 	"expo-open-ota/internal/update"
 	"log"
@@ -32,6 +33,11 @@ func getAssetMetadata(req AssetsRequest, returnAsset bool) (AssetsResponse, *typ
 	if req.AssetName == "" {
 		log.Printf("[RequestID: %s] No asset name provided", requestID)
 		return AssetsResponse{StatusCode: http.StatusBadRequest, Body: []byte("No asset name provided")}, nil, "", nil
+	}
+	normalizedAssetPath, err := helpers.NormalizeStoragePath(req.AssetName)
+	if err != nil {
+		log.Printf("[RequestID: %s] Invalid asset path: %s", requestID, req.AssetName)
+		return AssetsResponse{StatusCode: http.StatusBadRequest, Body: []byte("Invalid asset name")}, nil, "", nil
 	}
 
 	if req.Platform == "" || (req.Platform != "ios" && req.Platform != "android") {
@@ -79,17 +85,17 @@ func getAssetMetadata(req AssetsRequest, returnAsset bool) (AssetsResponse, *typ
 	}
 
 	bundle := platformMetadata.Bundle
-	isLaunchAsset := bundle == req.AssetName
+	isLaunchAsset := bundle == normalizedAssetPath
 
 	var assetMetadata types.Asset
 	for _, asset := range platformMetadata.Assets {
-		if asset.Path == req.AssetName {
+		if asset.Path == normalizedAssetPath {
 			assetMetadata = asset
 		}
 	}
 
 	resolvedBucket := bucket.GetBucket()
-	asset, err := resolvedBucket.GetFile(*lastUpdate, req.AssetName)
+	asset, err := resolvedBucket.GetFile(*lastUpdate, normalizedAssetPath)
 	if err != nil {
 		log.Printf("[RequestID: %s] Error getting asset: %v", requestID, err)
 		return AssetsResponse{StatusCode: http.StatusInternalServerError, Body: []byte("Error getting asset")}, nil, "", nil
@@ -161,7 +167,14 @@ func HandleAssetsWithURL(req AssetsRequest, resolvedCDN cdn.CDN) (AssetsResponse
 			Body:       resp.Body,
 		}, nil
 	}
-	resp.URL, err = resolvedCDN.ComputeRedirectionURLForAsset(req.Branch, req.RuntimeVersion, updateId, req.AssetName)
+	normalizedAssetPath, err := helpers.NormalizeStoragePath(req.AssetName)
+	if err != nil {
+		return AssetsResponse{
+			StatusCode: http.StatusBadRequest,
+			Body:       []byte("Invalid asset name"),
+		}, nil
+	}
+	resp.URL, err = resolvedCDN.ComputeRedirectionURLForAsset(req.Branch, req.RuntimeVersion, updateId, normalizedAssetPath)
 	if err != nil {
 		log.Printf("[RequestID: %s] Error computing redirection URL: %v", req.RequestID, err)
 		return AssetsResponse{

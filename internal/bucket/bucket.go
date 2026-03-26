@@ -2,7 +2,9 @@ package bucket
 
 import (
 	"bytes"
+	"errors"
 	"expo-open-ota/config"
+	"expo-open-ota/internal/helpers"
 	"expo-open-ota/internal/types"
 	"fmt"
 	"io"
@@ -111,10 +113,16 @@ type FileUploadRequest struct {
 	FilePath         string `json:"filePath"`
 }
 
+var ErrInvalidUploadFilePath = errors.New("invalid upload file path")
+
 func RequestUploadUrlsForFileUpdates(branch string, runtimeVersion string, updateId string, fileNames []string) ([]FileUploadRequest, error) {
 	uniqueFileNames := make(map[string]struct{})
 	for _, fileName := range fileNames {
-		uniqueFileNames[fileName] = struct{}{}
+		normalizedFileName, err := helpers.NormalizeStoragePath(fileName)
+		if err != nil {
+			return nil, fmt.Errorf("%w: %s", ErrInvalidUploadFilePath, fileName)
+		}
+		uniqueFileNames[normalizedFileName] = struct{}{}
 	}
 
 	bucket := GetBucket()
