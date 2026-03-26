@@ -18,6 +18,13 @@ import (
 	"time"
 )
 
+func maskConfiguredValue(value string) string {
+	if value == "" {
+		return ""
+	}
+	return "configured"
+}
+
 type BranchMapping struct {
 	BranchName     string  `json:"branchName"`
 	BranchId       *string `json:"branchId"`
@@ -86,8 +93,7 @@ func GetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(SettingsEnv{
 		BASE_URL:    config.GetEnv("BASE_URL"),
 		EXPO_APP_ID: config.GetEnv("EXPO_APP_ID"),
-		// Only retrieve the first 5 characters of the token
-		EXPO_ACCESS_TOKEN:                      "***" + config.GetEnv("EXPO_ACCESS_TOKEN")[:5],
+		EXPO_ACCESS_TOKEN:                      maskConfiguredValue(config.GetEnv("EXPO_ACCESS_TOKEN")),
 		CACHE_MODE:                             config.GetEnv("CACHE_MODE"),
 		REDIS_HOST:                             config.GetEnv("REDIS_HOST"),
 		REDIS_PORT:                             config.GetEnv("REDIS_PORT"),
@@ -95,19 +101,19 @@ func GetSettingsHandler(w http.ResponseWriter, r *http.Request) {
 		S3_BUCKET_NAME:                         config.GetEnv("S3_BUCKET_NAME"),
 		LOCAL_BUCKET_BASE_PATH:                 config.GetEnv("LOCAL_BUCKET_BASE_PATH"),
 		KEYS_STORAGE_TYPE:                      config.GetEnv("KEYS_STORAGE_TYPE"),
-		AWSSM_EXPO_PUBLIC_KEY_SECRET_ID:        config.GetEnv("AWSSM_EXPO_PUBLIC_KEY_SECRET_ID"),
-		AWSSM_EXPO_PRIVATE_KEY_SECRET_ID:       config.GetEnv("AWSSM_EXPO_PRIVATE_KEY_SECRET_ID"),
-		PUBLIC_EXPO_KEY_B64:                    config.GetEnv("PUBLIC_EXPO_KEY_B64"),
-		PUBLIC_LOCAL_EXPO_KEY_PATH:             config.GetEnv("PUBLIC_LOCAL_EXPO_KEY_PATH"),
-		PRIVATE_LOCAL_EXPO_KEY_PATH:            config.GetEnv("PRIVATE_LOCAL_EXPO_KEY_PATH"),
+		AWSSM_EXPO_PUBLIC_KEY_SECRET_ID:        maskConfiguredValue(config.GetEnv("AWSSM_EXPO_PUBLIC_KEY_SECRET_ID")),
+		AWSSM_EXPO_PRIVATE_KEY_SECRET_ID:       maskConfiguredValue(config.GetEnv("AWSSM_EXPO_PRIVATE_KEY_SECRET_ID")),
+		PUBLIC_EXPO_KEY_B64:                    maskConfiguredValue(config.GetEnv("PUBLIC_EXPO_KEY_B64")),
+		PUBLIC_LOCAL_EXPO_KEY_PATH:             maskConfiguredValue(config.GetEnv("PUBLIC_LOCAL_EXPO_KEY_PATH")),
+		PRIVATE_LOCAL_EXPO_KEY_PATH:            maskConfiguredValue(config.GetEnv("PRIVATE_LOCAL_EXPO_KEY_PATH")),
 		AWS_REGION:                             config.GetEnv("AWS_REGION"),
 		AWS_BASE_ENDPOINT:                      config.GetEnv("AWS_BASE_ENDPOINT"),
-		AWS_ACCESS_KEY_ID:                      config.GetEnv("AWS_ACCESS_KEY_ID"),
+		AWS_ACCESS_KEY_ID:                      maskConfiguredValue(config.GetEnv("AWS_ACCESS_KEY_ID")),
 		CLOUDFRONT_DOMAIN:                      config.GetEnv("CLOUDFRONT_DOMAIN"),
 		CLOUDFRONT_KEY_PAIR_ID:                 config.GetEnv("CLOUDFRONT_KEY_PAIR_ID"),
-		CLOUDFRONT_PRIVATE_KEY_B64:             config.GetEnv("CLOUDFRONT_PRIVATE_KEY_B64"),
-		AWSSM_CLOUDFRONT_PRIVATE_KEY_SECRET_ID: config.GetEnv("AWSSM_CLOUDFRONT_PRIVATE_KEY_SECRET_ID"),
-		PRIVATE_LOCAL_CLOUDFRONT_KEY_PATH:      config.GetEnv("PRIVATE_LOCAL_CLOUDFRONT_KEY_PATH"),
+		CLOUDFRONT_PRIVATE_KEY_B64:             maskConfiguredValue(config.GetEnv("CLOUDFRONT_PRIVATE_KEY_B64")),
+		AWSSM_CLOUDFRONT_PRIVATE_KEY_SECRET_ID: maskConfiguredValue(config.GetEnv("AWSSM_CLOUDFRONT_PRIVATE_KEY_SECRET_ID")),
+		PRIVATE_LOCAL_CLOUDFRONT_KEY_PATH:      maskConfiguredValue(config.GetEnv("PRIVATE_LOCAL_CLOUDFRONT_KEY_PATH")),
 		PROMETHEUS_ENABLED:                     config.GetEnv("PROMETHEUS_ENABLED"),
 	})
 }
