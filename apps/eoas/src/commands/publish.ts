@@ -25,6 +25,19 @@ import { resolveRuntimeVersionAsync } from '../lib/runtimeVersion';
 import { resolveVcsClient } from '../lib/vcs';
 import { resolveWorkflowAsync } from '../lib/workflow';
 
+function logSpawnOutput(output: unknown, logger: (message: string) => void): void {
+  if (!output) {
+    return;
+  }
+
+  const text = typeof output === 'string' ? output : String(output);
+  if (!text.trim()) {
+    return;
+  }
+
+  logger(text);
+}
+
 export default class Publish extends Command {
   static override args = {};
   static override description = 'Publish a new update to the self-hosted update server';
@@ -219,18 +232,28 @@ export default class Publish extends Command {
     }
     const exportSpinner = ora('📦 Exporting project files...').start();
     try {
-      const specifiedPlatform = platform === RequestedPlatform.All ? [] : ['--platform', platform];
-      const { stdout } = await spawnAsync(packageRunner, ['expo', 'export', '--output-dir', outputDir, ...specifiedPlatform], {
-        cwd: projectDir,
-        env: {
-          ...process.env,
-          EXPO_NO_DOTENV: '1',
-        },
-      });
+      const specifiedPlatform =
+        platform === RequestedPlatform.All
+          ? ['--platform', 'ios', '--platform', 'android']
+          : ['--platform', platform];
+      const { stdout } = await spawnAsync(
+        packageRunner,
+        ['expo', 'export', '--output-dir', outputDir, ...specifiedPlatform],
+        {
+          cwd: projectDir,
+          env: {
+            ...process.env,
+            ...(providedDeprecatedChannel ? { RELEASE_CHANNEL: providedDeprecatedChannel } : {}),
+          },
+        }
+      );
       exportSpinner.succeed('🚀 Project exported successfully');
       Log.withInfo(stdout);
-    } catch (e) {
-      exportSpinner.fail(`❌ Failed to export the project, ${e}`);
+    } catch (e: any) {
+      exportSpinner.fail('❌ Failed to export the project');
+      logSpawnOutput(e.stdout, Log.withInfo);
+      logSpawnOutput(e.stderr, Log.error);
+      Log.error(e.message ?? String(e));
       process.exit(1);
     }
     const publicConfig = await getPublicExpoConfigAsync(projectDir, {
