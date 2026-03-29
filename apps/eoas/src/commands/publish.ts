@@ -1,6 +1,7 @@
 import { Env, Platform } from '@expo/eas-build-job';
 import spawnAsync from '@expo/spawn-async';
 import { Command, Flags } from '@oclif/core';
+import crypto from 'crypto';
 import FormData from 'form-data';
 import fs from 'fs-extra';
 import mime from 'mime';
@@ -238,7 +239,7 @@ export default class Publish extends Command {
           : ['--platform', platform];
       const { stdout } = await spawnAsync(
         packageRunner,
-        ['expo', 'export', '--output-dir', outputDir, ...specifiedPlatform],
+        ['expo', 'export', '--output-dir', outputDir, '-s', ...specifiedPlatform],
         {
           cwd: projectDir,
           env: {
@@ -362,6 +363,96 @@ export default class Publish extends Command {
         })
       );
       uploadFilesSpinner.succeed('✅ Files uploaded successfully');
+
+      // Upload sourcemaps to Sentry
+      const sentryAuthToken = process.env.SENTRY_AUTH_TOKEN;
+      if (sentryAuthToken) {
+        const sentrySpinner = ora('📤 Uploading sourcemaps to Sentry...').start();
+        try {
+          const appVersion = config.version;
+
+          // Compute the UUID that the client will see (matching server logic)
+          const metadataJson = JSON.parse(
+            fs.readFileSync(path.join(projectDir, outputDir, 'metadata.json'), 'utf8')
+          );
+          const stringifiedMetadata = JSON.stringify(metadataJson);
+
+          for (const { updateId, platform, runtimeVersion } of uploadUrls) {
+            if (!updateId) continue;
+
+            // Replicate server-side UUID computation:
+            // hashInput = stringifiedMetadata + "::" + updateId + "::" + branch + "::" + runtimeVersion
+            const hashInput = `${stringifiedMetadata}::${updateId}::${branch}::${runtimeVersion}`;
+            const sha256Hash = crypto.createHash('sha256').update(hashInput).digest('hex');
+            const updateUUID = `${sha256Hash.slice(0, 8)}-${sha256Hash.slice(8, 12)}-${sha256Hash.slice(12, 16)}-${sha256Hash.slice(16, 20)}-${sha256Hash.slice(20, 32)}`;
+
+            const sentryRelease = `${appVersion}-${platform}-${updateUUID}`;
+            const jsDir = path.join(projectDir, outputDir, '_expo', 'static', 'js', platform);
+
+            if (!fs.existsSync(jsDir)) {
+              Log.withInfo(`⚠️ Sourcemap directory not found for ${platform}, skipping`);
+              continue;
+            }
+
+            // Find bundle and sourcemap files in the output directory
+            const dirEntries = fs.readdirSync(jsDir);
+            const hbcFile = dirEntries.find(f => f.endsWith('.hbc'));
+            const mapFile = dirEntries.find(f => f.endsWith('.hbc.map'));
+            if (!hbcFile || !mapFile) {
+              Log.withInfo(`⚠️ Bundle or sourcemap not found for ${platform}, skipping`);
+              continue;
+            }
+
+            const bundlePath = path.join(jsDir, hbcFile);
+            const sourcemapPath = path.join(jsDir, mapFile);
+
+            // Create release
+            await spawnAsync(packageRunner, ['sentry-cli', 'releases', 'new', sentryRelease], {
+              cwd: projectDir,
+              env: process.env as Env,
+            });
+
+            // Upload sourcemaps
+            await spawnAsync(
+              packageRunner,
+              [
+                'sentry-cli',
+                'sourcemaps',
+                'upload',
+                '--release',
+                sentryRelease,
+                '--bundle',
+                bundlePath,
+                '--bundle-sourcemap',
+                sourcemapPath,
+                '--no-rewrite',
+              ],
+              {
+                cwd: projectDir,
+                env: process.env as Env,
+              }
+            );
+
+            // Finalize release
+            await spawnAsync(
+              packageRunner,
+              ['sentry-cli', 'releases', 'finalize', sentryRelease],
+              {
+                cwd: projectDir,
+                env: process.env as Env,
+              }
+            );
+
+            Log.withInfo(`✅ Sourcemaps uploaded for ${platform} (release: ${sentryRelease})`);
+          }
+          sentrySpinner.succeed('✅ Sourcemaps uploaded to Sentry');
+        } catch (e) {
+          sentrySpinner.warn('⚠️ Failed to upload sourcemaps to Sentry (non-fatal)');
+          Log.error(e);
+        }
+      } else {
+        Log.withInfo('⚠️ SENTRY_AUTH_TOKEN not set, skipping sourcemap upload to Sentry');
+      }
     } catch (e) {
       uploadFilesSpinner.fail('❌ Failed to upload static files');
       Log.error(e);
